@@ -1,0 +1,33 @@
+{
+  "Version": "1.0.0",
+  "Channel": "VOICE",
+  "AccountId": "123456789012",
+  "InstanceId": "11111111-2222-3333-4444-555555555555",
+  "ContactId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "LanguageCode": "en-US",
+  "EventType": "SEGMENTS",
+  "Segments": [
+    {
+      "Utterance": {
+        "Id": "utt-0002",
+        "TranscriptId": "seg-0005",
+        "ParticipantId": "CUSTOMER-01",
+        "ParticipantRole": "CUSTOMER",
+        "PartialContent": "Let me give you",
+        "BeginOffsetMillis": 32000,
+        "EndOffsetMillis": 33400
+      }
+    },
+    {
+      "Transcript": {
+        "Id": "seg-0005",
+        "ParticipantId": "CUSTOMER-01",
+        "ParticipantRole": "CUSTOMER",
+        "Content": "Let me give you my employee Id.",
+        "BeginOffsetMillis": 32000,
+        "EndOffsetMillis": 33400,
+        "Sentiment": "NEUTRAL"
+      }
+    }
+  ]
+}

@@ -43,6 +43,7 @@ public class TranscriptIngestService {
                 storeTranscriptSegment(session, segment.getTranscript());
             }
         }
+        log.info("segments={}", session.getSegments());
     }
 
     public void storeUtteranceSegment(CallSession session, UtteranceSegment u) {
