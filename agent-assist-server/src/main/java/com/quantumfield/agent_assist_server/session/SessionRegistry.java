@@ -3,6 +3,7 @@ package com.quantumfield.agent_assist_server.session;
 import com.quantumfield.agent_assist_server.model.CallSession;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -20,5 +21,14 @@ public class SessionRegistry {
 
     public void removeSession(String contactId) {
         contactIdToSession.remove(contactId);
+    }
+
+    public CallSession getOrCreate(String contactId) {
+        return contactIdToSession.computeIfAbsent(contactId, id -> {
+            CallSession s = new CallSession();
+            s.setContactId(id);
+            s.setStartedAt(Instant.now());   // approximation: when we first saw the contact
+            return s;
+        });
     }
 }

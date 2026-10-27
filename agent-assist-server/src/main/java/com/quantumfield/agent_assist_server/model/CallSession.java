@@ -21,17 +21,22 @@ public class CallSession {
         return segmentIndex.containsKey(segmentId);
     }
 
+    public TranscriptSegment findSegment(String segmentId) {
+        return segmentIndex.get(segmentId);
+    }
+
     public void addSegment(TranscriptSegment segment){
         segmentIndex.put(segment.getSegmentId(), segment);
         segments.add(segment); //what if the segments arrive out of order?
     }
 
     public void updateSegment(String segmentId, TranscriptSegment updated){
-        segmentIndex.put(segmentId, updated);
-        for (TranscriptSegment segment : segments) {
-            if(segment.getSegmentId().equals(segmentId)){
-                segments.set(segments.indexOf(segment), updated);
-            }
+        TranscriptSegment existing = segmentIndex.put(segmentId, updated);
+        int idx = existing == null ? -1 : segments.indexOf(existing);
+        if (idx >= 0) {
+            segments.set(idx, updated);
+        } else {
+            segments.add(updated);
         }
     }
 }

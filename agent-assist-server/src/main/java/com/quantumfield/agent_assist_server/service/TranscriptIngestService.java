@@ -1,43 +1,87 @@
 package com.quantumfield.agent_assist_server.service;
 
+import com.quantumfield.agent_assist_server.contactlens.ContactLensEvent;
+import com.quantumfield.agent_assist_server.contactlens.Segment;
 import com.quantumfield.agent_assist_server.contactlens.TranscriptSegmentRaw;
 import com.quantumfield.agent_assist_server.contactlens.UtteranceSegment;
 import com.quantumfield.agent_assist_server.model.CallSession;
+import com.quantumfield.agent_assist_server.model.Speaker;
 import com.quantumfield.agent_assist_server.model.TranscriptSegment;
+import com.quantumfield.agent_assist_server.session.SessionRegistry;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 
+@Slf4j
+@Service
+@RequiredArgsConstructor
 public class TranscriptIngestService {
 
-    public void storeUtteranceSegment(CallSession callSession, UtteranceSegment segment){
-        TranscriptSegment transcriptSegment = new TranscriptSegment();
+    private final SessionRegistry sessionRegistry;
 
-        transcriptSegment.setPartial(true);
-        transcriptSegment.setSegmentId(segment.getTranscriptId());
-        transcriptSegment.setText(segment.getPartialContent());
-        transcriptSegment.setBeginTime(Instant.ofEpochMilli(segment.getBeginOffsetMillis()));
-        transcriptSegment.setEndTime(null);
-        transcriptSegment.setSentiment(null);
-
-        if(callSession.hasSegment(transcriptSegment.getSegmentId()))
-            callSession.updateSegment(transcriptSegment.getSegmentId() ,transcriptSegment);
-        else
-            callSession.addSegment(transcriptSegment);
+    public void handle(ContactLensEvent event) {
+        if (event.getContactId() == null || event.getEventType() == null) {
+            log.warn("Ignoring event without ContactId/EventType");
+            return;
+        }
+        if ("SEGMENTS".equals(event.getEventType())) {
+            handleSegments(event);
+        } else {
+            log.debug("Ignoring event type {} for contact {}", event.getEventType(), event.getContactId());
+        }
     }
 
-    public void storeTranscriptSegment(CallSession callSession, TranscriptSegmentRaw segment){
-        TranscriptSegment transcriptSegment = new TranscriptSegment();
+    private void handleSegments(ContactLensEvent event) {
+        if (event.getSegments() == null) return;
+        CallSession session = sessionRegistry.getOrCreate(event.getContactId());
+        for (Segment segment : event.getSegments()) {
+            if (segment.getUtterance() != null) {
+                storeUtteranceSegment(session, segment.getUtterance());
+            } else if (segment.getTranscript() != null) {
+                storeTranscriptSegment(session, segment.getTranscript());
+            }
+        }
+    }
 
-        transcriptSegment.setPartial(false);
-        transcriptSegment.setSegmentId(segment.getId());
-        transcriptSegment.setText(segment.getContent());
-        transcriptSegment.setBeginTime(Instant.ofEpochMilli(segment.getBeginOffsetMillis()));
-        transcriptSegment.setEndTime(Instant.ofEpochMilli(segment.getEndOffsetMillis()));
-        transcriptSegment.setSentiment(segment.getSentiment());
+    public void storeUtteranceSegment(CallSession session, UtteranceSegment u) {
+        TranscriptSegment seg = new TranscriptSegment();
+        seg.setPartial(true);
+        seg.setSegmentId(u.getTranscriptId());
+        seg.setSpeaker(toSpeaker(u.getParticipantRole()));
+        seg.setText(u.getPartialContent());
+        seg.setBeginTime(session.getStartedAt().plusMillis(u.getBeginOffsetMillis()));
+        upsert(session, seg);
+    }
 
-        if(callSession.hasSegment(transcriptSegment.getSegmentId()))
-            callSession.updateSegment(transcriptSegment.getSegmentId() ,transcriptSegment);
-        else
-            callSession.addSegment(transcriptSegment);
+    public void storeTranscriptSegment(CallSession session, TranscriptSegmentRaw t) {
+        TranscriptSegment seg = new TranscriptSegment();
+        seg.setPartial(false);
+        seg.setSegmentId(t.getId());
+        seg.setSpeaker(toSpeaker(t.getParticipantRole()));
+        seg.setText(t.getContent());
+        seg.setBeginTime(session.getStartedAt().plusMillis(t.getBeginOffsetMillis()));
+        seg.setEndTime(session.getStartedAt().plusMillis(t.getEndOffsetMillis()));
+        seg.setSentiment(t.getSentiment());
+        upsert(session, seg);
+    }
+
+    private void upsert(CallSession session, TranscriptSegment incoming) {
+        TranscriptSegment existing = session.findSegment(incoming.getSegmentId());
+        if (existing == null) {
+            session.addSegment(incoming);
+        } else if (incoming.isPartial() && !existing.isPartial()) {
+            log.debug("Ignoring partial for already-final segment {}", incoming.getSegmentId());
+        } else {
+            session.updateSegment(incoming.getSegmentId(), incoming);
+        }
+    }
+
+    private Speaker toSpeaker(String role) {
+        if ("AGENT".equalsIgnoreCase(role)) return Speaker.AGENT;
+        if ("CUSTOMER".equalsIgnoreCase(role)) return Speaker.CUSTOMER;
+        log.warn("Unexpected ParticipantRole '{}', treating as CUSTOMER", role);
+        return Speaker.CUSTOMER;
     }
 }

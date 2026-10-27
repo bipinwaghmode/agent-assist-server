@@ -2,6 +2,7 @@ package com.quantumfield.agent_assist_server.contactlens;
 
 import com.quantumfield.agent_assist_server.model.CallSession;
 import com.quantumfield.agent_assist_server.service.TranscriptIngestService;
+import com.quantumfield.agent_assist_server.session.SessionRegistry;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
@@ -21,7 +22,7 @@ public class ContactLensEventParsingTest {
 
         ContactLensEvent event = objectMapper.readValue(fixture, ContactLensEvent.class);
 
-        TranscriptIngestService transcriptIngestService = new TranscriptIngestService();
+        TranscriptIngestService transcriptIngestService = new TranscriptIngestService(new SessionRegistry());
         CallSession callSession = new CallSession();
         List<Segment> segments = event.getSegments();
 

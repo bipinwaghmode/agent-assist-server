@@ -1,5 +1,6 @@
 package com.quantumfield.agent_assist_server.kinesis;
 
+import com.quantumfield.agent_assist_server.service.TranscriptIngestService;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ import software.amazon.kinesis.common.InitialPositionInStream;
 import software.amazon.kinesis.common.InitialPositionInStreamExtended;
 import software.amazon.kinesis.coordinator.Scheduler;
 import software.amazon.kinesis.retrieval.polling.PollingConfig;
+import tools.jackson.databind.ObjectMapper;
 
 import java.net.URI;
 import java.util.UUID;
@@ -34,12 +36,14 @@ import java.util.concurrent.TimeUnit;
 public class KinesisStreamConsumer {
 
     private final KinesisProperties properties;
+    private final ObjectMapper objectMapper;
+    private final TranscriptIngestService ingestService;
 
     private Scheduler scheduler;
 
-    KinesisAsyncClient kinesisClient;
-    DynamoDbAsyncClient dynamoClient;
-    CloudWatchAsyncClient cloudWatchClient;
+    private KinesisAsyncClient kinesisClient;
+    private DynamoDbAsyncClient dynamoClient;
+    private CloudWatchAsyncClient cloudWatchClient;
 
     @EventListener(ApplicationReadyEvent.class)
     public void start() {
@@ -88,7 +92,7 @@ public class KinesisStreamConsumer {
                 dynamoClient,
                 cloudWatchClient,
                 workerId,
-                () -> new KinesisShardRecordProcessor()
+                () -> new KinesisShardRecordProcessor(objectMapper, ingestService)
         );
 
         // 4. Configure and create the Scheduler
@@ -122,12 +126,13 @@ public class KinesisStreamConsumer {
                 Future<Boolean> shutdownFuture = scheduler.startGracefulShutdown();
 
                 Boolean cleanShutdown = shutdownFuture.get(20, TimeUnit.SECONDS);
-                kinesisClient.close();
-                dynamoClient.close();
-                cloudWatchClient.close();
                 log.info("KCL Scheduler shutdown complete. Clean shutdown: {}", cleanShutdown);
             } catch (Exception e) {
                 log.error("Error or timeout during Kinesis scheduler graceful shutdown", e);
+            }finally{
+                if (kinesisClient != null) kinesisClient.close();
+                if (dynamoClient != null) dynamoClient.close();
+                if (cloudWatchClient != null) cloudWatchClient.close();
             }
         }
     }
