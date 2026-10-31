@@ -6,7 +6,9 @@ import com.quantumfield.agent_assist_server.model.Speaker;
 import com.quantumfield.agent_assist_server.model.TranscriptSegment;
 import com.quantumfield.agent_assist_server.service.TranscriptIngestService;
 import com.quantumfield.agent_assist_server.session.SessionRegistry;
+import com.quantumfield.agent_assist_server.websocket.TranscriptPublisher;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.InputStream;
@@ -20,7 +22,7 @@ class TranscriptIngestServiceTest {
     @Test
     void duplicateDeliveryDoesNotDuplicateOrRegress() {
         SessionRegistry registry = new SessionRegistry();
-        TranscriptIngestService service = new TranscriptIngestService(registry);
+        TranscriptIngestService service = new TranscriptIngestService(registry, Mockito.mock(TranscriptPublisher.class));
 
         InputStream fixture = getClass().getResourceAsStream("/contact-lens-segments-sample.json");
         assertNotNull(fixture);

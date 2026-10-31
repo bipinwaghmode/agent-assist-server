@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Transcript harness</title>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 0; background: #F6F7F9; color: #1B2430; }
+  #bar { padding: 8px 12px; background: #fff; border-bottom: 1px solid #ddd; font-family: monospace; font-size: 12px; }
+  #log { height: calc(100vh - 80px); overflow-y: auto; padding: 8px 12px; }
+  .row { display: flex; gap: 8px; padding: 8px 0; border-bottom: 1px solid #e5e5e5; }
+  .badge { width: 20px; height: 20px; border-radius: 50%; font-size: 10px; display: flex; align-items: center; justify-content: center; flex: none; }
+  .AGENT .badge { background: #E6F1FB; color: #0C447C; }
+  .CUSTOMER .badge { background: #F1EFE8; color: #5F5E5A; }
+  .time { font: 10px monospace; color: #8B94A3; }
+  .partial .text { color: #A8ADB6; font-style: italic; }
+  #jump { display: none; position: fixed; right: 16px; bottom: 16px; }
+</style>
+</head>
+<body>
+<div id="bar">connecting...</div>
+<div id="log"></div>
+<button id="jump">Jump to latest</button>
+<script>
+const agentId = new URLSearchParams(location.search).get("agentId") || "agent-1";
+const host = location.host || "localhost:8080";
+const proto = location.protocol === "https:" ? "wss" : "ws";
+const bar = document.getElementById("bar"), log = document.getElementById("log"), jump = document.getElementById("jump");
+const rows = new Map();   // segmentId -> {el, partial}
+let contactId = "-";
+
+const atBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+const status = s => bar.textContent = `${s} | agent=${agentId} | contact=${contactId}`;
+jump.onclick = () => { log.scrollTop = log.scrollHeight; jump.style.display = "none"; };
+log.onscroll = () => { if (atBottom()) jump.style.display = "none"; };
+
+function render(seg) {
+  const known = rows.get(seg.segmentId);
+  if (known && !known.partial && seg.isPartial) return;     // a partial never overwrites a final
+  const stick = atBottom();
+  let el = known ? known.el : null;
+  if (!el) { el = document.createElement("div"); log.appendChild(el); }
+  el.className = `row ${seg.speaker}` + (seg.isPartial ? " partial" : "");
+  const t = seg.isPartial ? "transcribing" : new Date(seg.beginTime).toLocaleTimeString();
+  el.innerHTML = `<div class="badge">${seg.speaker[0]}</div><div><span class="time"></span><div class="text"></div></div>`;
+  el.querySelector(".time").textContent = t;
+  el.querySelector(".text").textContent = seg.text;
+  rows.set(seg.segmentId, { el, partial: seg.isPartial });
+  if (stick) log.scrollTop = log.scrollHeight; else jump.style.display = "block";
+}
+
+function connect() {
+  const ws = new WebSocket(`${proto}://${host}/ws/transcript?agentId=${encodeURIComponent(agentId)}`);
+  ws.onopen = () => status("connected");
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.type === "session_start") { contactId = m.contactId; rows.clear(); log.innerHTML = ""; status("connected"); }
+    else if (m.type === "segment_update") render(m.segment);
+    else if (m.type === "session_end") status("call ended");
+  };
+  ws.onclose = e => {
+    if (e.code === 4000) { status("replaced by another tab - not reconnecting"); return; }
+    status("disconnected, retrying"); setTimeout(connect, 2000);
+  };
+}
+connect();
+</script>
+</body>
+</html>

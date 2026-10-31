@@ -1,12 +1,12 @@
 package com.quantumfield.agent_assist_server.controller;
 
+import com.quantumfield.agent_assist_server.model.CallSession;
+import com.quantumfield.agent_assist_server.session.SessionRegistry;
 import com.quantumfield.agent_assist_server.websocket.SocketRegistry;
+import com.quantumfield.agent_assist_server.websocket.TranscriptPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -17,6 +17,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class DebugController {
     private final SocketRegistry socketRegistry;
+    private final SessionRegistry sessionRegistry;
+    private final TranscriptPublisher publisher;
 
     @PostMapping("/debug/push/{agentId}")
     public ResponseEntity<String> push(@PathVariable("agentId") String agentId,
@@ -34,5 +36,14 @@ public class DebugController {
         } catch (IOException e) {
             return ResponseEntity.status(500).body("send failed: " + e.getMessage());
         }
+    }
+
+    @PostMapping("/debug/assign")
+    public ResponseEntity<String> assign(@RequestParam("contactId") String contactId,
+                                         @RequestParam("agentId") String agentId) {
+        CallSession session = sessionRegistry.getOrCreate(contactId);
+        session.setAgentId(agentId);
+        publisher.replay(session);
+        return ResponseEntity.ok("assigned " + contactId + " -> " + agentId);
     }
 }

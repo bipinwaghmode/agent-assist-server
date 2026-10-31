@@ -4,7 +4,9 @@ import com.quantumfield.agent_assist_server.model.CallSession;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -30,5 +32,11 @@ public class SessionRegistry {
             s.setStartedAt(Instant.now());   // approximation: when we first saw the contact
             return s;
         });
+    }
+
+    public Optional<CallSession> findByAgentId(String agentId) {
+        return contactIdToSession.values().stream()
+                .filter(s -> agentId.equals(s.getAgentId()))
+                .max(Comparator.comparing(CallSession::getStartedAt));
     }
 }
