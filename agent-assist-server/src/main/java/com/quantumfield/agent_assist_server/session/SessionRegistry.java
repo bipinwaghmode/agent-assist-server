@@ -1,6 +1,7 @@
 package com.quantumfield.agent_assist_server.session;
 
 import com.quantumfield.agent_assist_server.model.CallSession;
+import com.quantumfield.agent_assist_server.model.SessionStatus;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -38,5 +39,14 @@ public class SessionRegistry {
         return contactIdToSession.values().stream()
                 .filter(s -> agentId.equals(s.getAgentId()))
                 .max(Comparator.comparing(CallSession::getStartedAt));
+    }
+
+    public int evictEndedBefore(Instant cutoff) {
+        int before = contactIdToSession.size();
+        contactIdToSession.values().removeIf(s ->
+                s.getStatus() == SessionStatus.ENDED
+                        && s.getEndedAt() != null
+                        && s.getEndedAt().isBefore(cutoff));
+        return before - contactIdToSession.size();
     }
 }

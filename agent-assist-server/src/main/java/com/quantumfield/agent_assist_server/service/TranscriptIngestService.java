@@ -5,6 +5,7 @@ import com.quantumfield.agent_assist_server.contactlens.Segment;
 import com.quantumfield.agent_assist_server.contactlens.TranscriptSegmentRaw;
 import com.quantumfield.agent_assist_server.contactlens.UtteranceSegment;
 import com.quantumfield.agent_assist_server.model.CallSession;
+import com.quantumfield.agent_assist_server.model.SessionStatus;
 import com.quantumfield.agent_assist_server.model.Speaker;
 import com.quantumfield.agent_assist_server.model.TranscriptSegment;
 import com.quantumfield.agent_assist_server.session.SessionRegistry;
@@ -30,7 +31,9 @@ public class TranscriptIngestService {
         }
         if ("SEGMENTS".equals(event.getEventType())) {
             handleSegments(event);
-        } else {
+        } else if("COMPLETED".equals(event.getEventType()) || "FAILED".equals(event.getEventType())){
+            handleEnded(event);
+        }else {
             log.debug("Ignoring event type {} for contact {}", event.getEventType(), event.getContactId());
         }
     }
@@ -47,6 +50,17 @@ public class TranscriptIngestService {
             }
         }
         log.info("segments={}", session.getSegments());
+    }
+
+    private void handleEnded(ContactLensEvent event) {
+        CallSession session = sessionRegistry.findSession(event.getContactId());
+        if (session == null) return;                       // never saw this call
+        synchronized (session) {
+            if (session.getStatus() == SessionStatus.ENDED) return;   // duplicate event (redelivery)
+            session.setStatus(SessionStatus.ENDED);
+            session.setEndedAt(Instant.now());
+            publisher.publishSessionEnd(session);
+        }
     }
 
     public TranscriptSegment storeUtteranceSegment(CallSession session, UtteranceSegment u) {

@@ -1,6 +1,7 @@
 package com.quantumfield.agent_assist_server.websocket;
 
 import com.quantumfield.agent_assist_server.model.CallSession;
+import com.quantumfield.agent_assist_server.model.SessionStatus;
 import com.quantumfield.agent_assist_server.model.TranscriptSegment;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,12 +21,20 @@ public class TranscriptPublisher {
         send(session.getAgentId(), new OutboundEvents.SegmentUpdate(session.getContactId(), seg));
     }
 
+    public void publishSessionEnd(CallSession session){
+        if (session.getAgentId() == null) return;
+        send(session.getAgentId(), new OutboundEvents.SessionEnd(session.getContactId()));
+    }
+
     public void replay(CallSession session) {
         if (session.getAgentId() == null) return;
         synchronized (session) {   // same lock as ingest, so a replay can't interleave with live updates
             send(session.getAgentId(), new OutboundEvents.SessionStart(session.getContactId()));
             for (TranscriptSegment seg : session.getSegments()) {
                 send(session.getAgentId(), new OutboundEvents.SegmentUpdate(session.getContactId(), seg));
+            }
+            if (session.getStatus() == SessionStatus.ENDED) {
+                send(session.getAgentId(), new OutboundEvents.SessionEnd(session.getContactId()));
             }
         }
     }

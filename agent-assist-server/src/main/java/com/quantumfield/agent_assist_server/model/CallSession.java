@@ -14,6 +14,8 @@ public class CallSession {
     private String contactId;
     private Instant startedAt;
     private String agentId;
+    private volatile SessionStatus status = SessionStatus.ACTIVE;
+    private volatile Instant endedAt;
     private final Map<String, TranscriptSegment> segmentIndex = new ConcurrentHashMap<>();
     private final List<TranscriptSegment> segments = new CopyOnWriteArrayList<>();
 

@@ -1,6 +1,7 @@
 package com.quantumfield.agent_assist_server.controller;
 
 import com.quantumfield.agent_assist_server.model.CallSession;
+import com.quantumfield.agent_assist_server.service.CallAssignmentService;
 import com.quantumfield.agent_assist_server.session.SessionRegistry;
 import com.quantumfield.agent_assist_server.websocket.SocketRegistry;
 import com.quantumfield.agent_assist_server.websocket.TranscriptPublisher;
@@ -19,6 +20,7 @@ public class DebugController {
     private final SocketRegistry socketRegistry;
     private final SessionRegistry sessionRegistry;
     private final TranscriptPublisher publisher;
+    private final CallAssignmentService callAssignmentService;
 
     @PostMapping("/debug/push/{agentId}")
     public ResponseEntity<String> push(@PathVariable("agentId") String agentId,
@@ -41,9 +43,7 @@ public class DebugController {
     @PostMapping("/debug/assign")
     public ResponseEntity<String> assign(@RequestParam("contactId") String contactId,
                                          @RequestParam("agentId") String agentId) {
-        CallSession session = sessionRegistry.getOrCreate(contactId);
-        session.setAgentId(agentId);
-        publisher.replay(session);
+        callAssignmentService.assign(contactId, agentId);
         return ResponseEntity.ok("assigned " + contactId + " -> " + agentId);
     }
 }

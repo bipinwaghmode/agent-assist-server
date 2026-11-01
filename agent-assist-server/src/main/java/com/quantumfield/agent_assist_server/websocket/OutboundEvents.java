@@ -13,4 +13,7 @@ public final class OutboundEvents {
             this("segment_update", contactId, segment);
         }
     }
+    public record SessionEnd(String type, String contactId) {
+        public SessionEnd(String contactId) { this("session_end", contactId); }
+    }
 }
